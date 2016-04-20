@@ -1,10 +1,10 @@
-all: ga
+all: maxcut
 
-ga: ga.cpp
-	g++ -o ga -O3 ga.cpp
+maxcut: maxcut.cpp
+	g++ -o maxcut -O3 maxcut.cpp
 
-run: ga
-	./ga < cycle.in > cycle.out
+run: maxcut
+	./maxcut data.in result.out
 
 clean:
-	rm ga
+	rm maxcut

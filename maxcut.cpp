@@ -90,11 +90,42 @@ void roulett_selction(solution** s1, solution** s2){
 	*s1=&population[r1];
 	*s2=&population[r2];
 }
+void rank_init(){
+	sum_of_f=0;
+
+	int best_f=Vertex_N, worst_f= 1;
+	double cons=((double)worst_f-(double)best_f)/(double)(Vertex_N-1);
+	for(int i=0; i<SOL_N; i++){
+		fn[i]=(double)(Vertex_N)+cons*(double)i;
+		sum_of_f+=fn[i];
+	}
+}
+
 
 void rank_selection(solution** s1, solution** s2){
 	sort(population.begin(), population.end(), sol_comp);
 	int r1=SOL_N/2+1;
 	int r2=SOL_N/2;
+
+	rank_init();
+	 int sum=0;
+	 int pt=rand()%sum_of_f;
+	 //r1
+	 for(int i=0; i<SOL_N; i++){
+		 sum+=fn[i];
+		 if(pt<sum){
+			 r1=i;
+		 }
+
+	 }
+	 //r2
+	 sum=0;
+	 for(int i=0; i<SOL_N; i++){
+		 sum+=fn[i];
+		 if(pt<sum){
+			 r2=i;
+		 }
+	 }
 	*s1=&population[r1];
 	*s2=&population[r2];
 }
@@ -399,8 +430,8 @@ void GA(){
 		multi_pt_crossover(p1, p2, &c);
 		uniform_crossover(p1, p2, &c);
 		*/
+		uniform_crossover(p1, p2, &c);
 
-		multi_pt_crossover(p1, p2, &c);
 
 		// mutation
 		/*
@@ -419,7 +450,7 @@ void GA(){
 		parent_replacement(p1, p2, &c);
 		sim_replacement(p1, p2, &c);
 		*/
-		parent_replacement(p1, p2, &c);
+		sim_replacement(p1, p2, &c);
 
 		int sum=0;
 		for(int i=0; i<SOL_N; i++){

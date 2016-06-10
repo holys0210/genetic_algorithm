@@ -2,20 +2,26 @@
 #include <time.h>
 #include <stdlib.h>
 #include <vector>
+#include <queue>
 #include <algorithm>
+#include <iostream>
 
 using namespace std;
 
-#define MAX_N 1000
-#define SOL_N 50
-#define MUT_CRI 0.2
+#define MAX_N 5000
+#define SOL_N 200
+#define MUT_CRI 0.5
 #define MAX_TIME 175
-#define LOC_N 16
+#define LOC_N 5000
 #define K 3
 
 int Vertex_N, Edge_N;
 int edge[MAX_N+1][MAX_N+1];
+bool conn[MAX_N+1][MAX_N+1];
+	int newedge[MAX_N+1][MAX_N+1];
+int reorder[MAX_N+1];
 	int mx=-987765321;
+	time_t start;
 
 typedef struct {
 	bool chromosome[MAX_N+1];
@@ -93,8 +99,8 @@ void roulett_selction(solution** s1, solution** s2){
 void rank_init(){
 	sum_of_f=0;
 
-	int best_f=Vertex_N, worst_f= 1;
-	double cons=((double)worst_f-(double)best_f)/(double)(Vertex_N-1);
+	double press=2.0;
+	double cons=press/(Vertex_N-1);
 	for(int i=0; i<SOL_N; i++){
 		fn[i]=(double)(Vertex_N)+cons*(double)i;
 		sum_of_f+=fn[i];
@@ -140,6 +146,20 @@ void random_selection(solution** s1, solution** s2){
 	*s2=&population[r2];
 
 }
+
+void regular(solution* s){
+	//start with 0(false)
+	bool* chrom = s->chromosome;
+	if(chrom[1]){
+		for(int i=1; i<=Vertex_N; i++){
+			chrom[i]=!(chrom[i]);
+		}
+	}
+//	s->quality=eval(s);
+	return;
+}
+
+
 
 void one_pt_crossover(solution* p1, solution* p2, solution* c){
 	int xover_pt=rand()%Vertex_N;
@@ -206,10 +226,6 @@ void uni_mutation(solution* c){
 			c->chromosome[k]= !(c->chromosome[k]);
 		}
 	}
-	int r1=rand()%Vertex_N;
-	int r2=rand()%Vertex_N;
-	c->chromosome[r1]= !(c->chromosome[r1]);
-	c->chromosome[r2]= !(c->chromosome[r2]);
 
 	// evaluate quality
 	c->quality=eval(c);
@@ -218,18 +234,16 @@ void uni_mutation(solution* c){
 
 void non_uni_mutation(solution* c){
 	double r;
-	double a=MUT_CRI*(1.0-(double)time(0)/MAX_TIME);
+//	double a=MUT_CRI*(1.0-(double)time(0)/MAX_TIME);
+	double a = MUT_CRI + ((1.0 - MUT_CRI)*(((double)time(0)-(double)start)/(double)MAX_TIME));
+//	cout<<a<<" ";
 	for(int k=1; k<=Vertex_N; k++){
 		r=(float)rand()/(float)(RAND_MAX);
-		if(r<MUT_CRI){
+		if(r<a){
 			c->chromosome[k]= !(c->chromosome[k]);
 		}
 	}
 
-	int r1=rand()%Vertex_N;
-	int r2=rand()%Vertex_N;
-	c->chromosome[r1]= !(c->chromosome[r1]);
-	c->chromosome[r2]= !(c->chromosome[r2]);
 
 	// evaluate quality
 	c->quality=eval(c);
@@ -249,6 +263,11 @@ int sim(solution a, solution* b){
 void pop_replacement(solution* p1, solution* p2, solution* c){
 	solution* p;
 	find_min(&p);
+	bool* p_ch=p->chromosome, *c_ch=c->chromosome;
+
+	for(int k=1; k<Vertex_N; k++){
+		p_ch[k]=c_ch[k];
+	}
 	p->quality=c->quality;
 }
 
@@ -259,6 +278,11 @@ void parent_replacement(solution* p1, solution* p2, solution* c){
 	}
 	else{
 		p=p1;
+	}
+	bool* p_ch=p->chromosome, *c_ch=c->chromosome;
+
+	for(int k=1; k<Vertex_N; k++){
+		p_ch[k]=c_ch[k];
 	}
 	p->quality=c->quality;
 }
@@ -399,16 +423,18 @@ void multilocal_opt(){
 		local_opt(&sol[step]);
 	}
 	solution msol=*max_element(sol.begin(), sol.end(), sol_comp);
+
+	printf("quality : %d\n", msol.quality);
 }
 
 
 void GA(){
-	time_t start=time(0);
+	start=time(0);
 
 	int index=0;
 
 	solution *p1, *p2;
-	solution c;
+	solution c[10];
 	// 180second
 	solution* a;
 	int st=0;
@@ -424,13 +450,19 @@ void GA(){
 		find_max(&p1);
 		find_min(&p2);
 
+		// regularization
+//		regular(p1);
+//		regular(p2);
+
 		// crossover
 		/*
 		one_pt_crossover(p1, p2, &c);
 		multi_pt_crossover(p1, p2, &c);
 		uniform_crossover(p1, p2, &c);
 		*/
-		uniform_crossover(p1, p2, &c);
+		for(int i=0; i<10; i++){
+			multi_pt_crossover(p1, p2, &c[i]);
+		}
 
 
 		// mutation
@@ -438,10 +470,16 @@ void GA(){
 		uni_mutation(&c);
 		non_uni_mutation(&c);
 		*/
+		for(int i=0; i<10; i++){
+		//	uni_mutation(&c[i]);
+			non_uni_mutation(&c[i]);
+		}
 
-		uni_mutation(&c);
+
 		// local optimization
-		local_opt(&c);
+		for(int i=0; i<10; i++){
+			local_opt(&c[i]);
+		}
 //		multilocal_opt();
 
 		// replacement
@@ -450,7 +488,19 @@ void GA(){
 		parent_replacement(p1, p2, &c);
 		sim_replacement(p1, p2, &c);
 		*/
-		sim_replacement(p1, p2, &c);
+		/*
+		int cmm=0;
+		for(int i=1; i<10; i++){
+			if(c[i].quality>c[cmm].quality){
+				cmm=i;
+			}
+		}
+		parent_replacement(p1, p2, &c[cmm]);
+		*/
+		for(int i=0; i<10; i++){
+			pop_replacement(p1, p2, &c[i]);
+		}
+//		cout<<c.quality<<endl;
 
 		int sum=0;
 		for(int i=0; i<SOL_N; i++){
@@ -463,10 +513,11 @@ void GA(){
 			asdf=*best;
 		}
 		st++;
+		//cout<<mx<<" "<<(double)sum/(double)SOL_N<<endl;
 
 
 	}
-	printf("%d\n", st);
+	//printf("%d\n", st);
 
 
 	return ;
@@ -481,6 +532,60 @@ void init_chrom(solution* s){
 }
 
 
+void bfs(){
+	bool visited[MAX_N+1];
+	for(int i=1; i<=Vertex_N; i++){
+		visited[i]=false;
+	}
+	queue<int > Q;
+	int x;
+	int index=1;
+	for(int k=1; k<=Vertex_N; k++){
+		if(!visited[k]){
+			Q.push(k);
+			visited[k]=true;
+
+			reorder[index]=k;
+			index++;
+
+			if(!Q.empty()){
+				x=Q.front();
+				Q.pop();
+
+
+				for(int i=1; i<=Vertex_N; i++){
+					if( (conn[x][i]) && (!visited[i])){
+						Q.push(i);
+						visited[i]=true;
+						reorder[index]=i;
+						index++;
+					}
+				}
+			}
+		}
+	}
+	return;
+
+}
+
+void bfs_reorder(){
+	bfs();
+	for(int i=1; i<=Vertex_N; i++){
+		for(int j=1; j<=Vertex_N; j++){
+			newedge[i][j]=edge[ reorder[i] ][ reorder[j] ];
+		}
+	}
+	for(int i=1; i<=Vertex_N; i++){
+		for(int j=1; j<=Vertex_N; j++){
+			edge[i][j] = newedge[i][j];
+		}
+	}
+	return ;
+}
+
+
+
+
 void init(FILE *fp){
 	fscanf(fp, "%d%d", &Vertex_N, &Edge_N);
 	int i, j, dist;
@@ -489,6 +594,7 @@ void init(FILE *fp){
 	for(int x=1; x<=Vertex_N; x++){
 		for(int y=1; y<=Vertex_N; y++){
 			edge[x][y]=0;
+			conn[x][y]=false;
 		}
 	}
 
@@ -497,6 +603,8 @@ void init(FILE *fp){
 		fscanf(fp, "%d%d%d", &i, &j, &dist);
 		edge[i][j]=dist;
 		edge[j][i]=dist;
+		conn[i][j]=true;
+		conn[j][i]=true;
 	}
 
 	// generate random solution
@@ -555,9 +663,12 @@ int main(int argc, char** argv){
 
 
 	init(fin);
-//	multilocal_opt();
+	bfs_reorder();
+//
+//multilocal_opt();
 	GA();
 	answer(stdout);
+//	answer(fout);
 
 	return 0;
 }
